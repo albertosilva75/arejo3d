@@ -1,0 +1,11 @@
+
+{
+  "name": "Arejo3D - Gestao de Impressao 3D",
+  "short_name": "Arejo3D",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0d1016",
+  "theme_color": "#10131a",
+  "description": "Gestao de filamentos, custos, impressoes e vendas 3D"
+}
