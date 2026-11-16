@@ -1,1 +1,159 @@
 
+
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#10131a">
+<title>Arejo3D</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0d1016;color:#eef2f8;font-family:Arial,sans-serif;padding:18px 15px 90px}
+header{background:#171c26;padding:18px;border-radius:15px;margin-bottom:18px}
+h1{margin:0;color:#ff555e}
+h2{font-size:19px}
+.card{background:#171c26;border:1px solid #30394a;padding:15px;border-radius:14px;margin:12px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric{font-size:12px;color:#aab5c5}
+.metric strong{display:block;font-size:22px;color:white;margin-top:8px}
+button{background:#ff4b55;color:white;border:0;padding:12px;border-radius:10px;font-weight:bold;cursor:pointer}
+input,select{width:100%;padding:12px;margin:5px 0 12px;background:#0d1016;color:white;border:1px solid #394354;border-radius:9px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#171c26;display:flex;justify-content:space-around;padding:12px 2px}
+nav button{background:transparent;color:#ff7777;padding:8px 4px;font-size:11px}
+.view{display:none}.view.active{display:block}
+.item{padding:12px 0;border-bottom:1px solid #30394a}
+small{color:#aab5c5}
+</style>
+</head>
+<body>
+<header><h1>AREJO3D</h1><small>Gestão de impressão 3D</small></header>
+
+<section id="inicio" class="view active">
+<h2>Dashboard</h2>
+<div class="grid">
+<div class="card metric">Custos<strong id="custos">0,00 €</strong></div>
+<div class="card metric">Vendas<strong id="vendas">0,00 €</strong></div>
+<div class="card metric">Lucro<strong id="lucro">0,00 €</strong></div>
+<div class="card metric">Impressões<strong id="total">0</strong></div>
+</div>
+<div class="card"><h3>Últimas impressões</h3><div id="recentes">Sem registos.</div></div>
+</section>
+
+<section id="filamentos" class="view">
+<h2>Filamentos</h2>
+<div class="card">
+<h3>Adicionar bobine</h3>
+<label>Nome</label><input id="fnome" placeholder="PLA Preto">
+<label>Material</label><select id="fmaterial"><option>PLA</option><option>PETG</option><option>ABS</option><option>TPU</option><option>Outro</option></select>
+<label>Cor</label><input id="fcor" placeholder="Preto">
+<label>Peso líquido (g)</label><input id="fpeso" type="number" value="1000">
+<label>Preço pago (€)</label><input id="fpreco" type="number" step="0.01">
+<button onclick="addFilamento()">Guardar filamento</button>
+</div>
+<div class="card" id="listaFilamentos"></div>
+</section>
+
+<section id="impressoes" class="view">
+<h2>Nova impressão</h2>
+<div class="card">
+<label>Nome da peça</label><input id="pnome" placeholder="Suporte telemóvel">
+<label>Filamento</label><select id="pfilamento"></select>
+<label>Filamento utilizado (g)</label><input id="pgramas" type="number">
+<label>Tempo de impressão (horas)</label><input id="phoras" type="number" step="0.1">
+<button onclick="calcular()">Calcular e registar</button>
+</div>
+<div class="card" id="resultado">O custo aparecerá aqui.</div>
+<div class="card" id="listaImpressoes"></div>
+</section>
+
+<section id="vendasview" class="view">
+<h2>Registar venda</h2>
+<div class="card">
+<label>Nome da peça</label><input id="vnome">
+<label>Quantidade</label><input id="vquant" type="number" value="1">
+<label>Preço unitário (€)</label><input id="vpreco" type="number" step="0.01">
+<button onclick="addVenda()">Registar venda</button>
+</div>
+<div class="card" id="listaVendas"></div>
+</section>
+
+<section id="config" class="view">
+<h2>Configurações</h2>
+<div class="card">
+<label>Preço eletricidade (€/kWh)</label><input id="energia" type="number" value="0.20" step="0.001">
+<label>Potência média da impressora (W)</label><input id="potencia" type="number" value="120">
+<label>Desgaste por hora (€)</label><input id="desgaste" type="number" value="0.10" step="0.01">
+<label>Desperdício (%)</label><input id="desperdicio" type="number" value="5">
+<label>Margem de venda (%)</label><input id="margem" type="number" value="40">
+<button onclick="guardarConfig()">Guardar configurações</button>
+</div>
+<div class="card">
+<button onclick="exportar()">Exportar cópia de segurança</button>
+</div>
+</section>
+
+<nav>
+<button onclick="mostrar('inicio')">Resumo</button>
+<button onclick="mostrar('filamentos')">Filamentos</button>
+<button onclick="mostrar('impressoes')">Impressões</button>
+<button onclick="mostrar('vendasview')">Vendas</button>
+<button onclick="mostrar('config')">Mais</button>
+</nav>
+
+<script>
+const key='arejo3d';
+let db=JSON.parse(localStorage.getItem(key)||'{"filamentos":[],"impressoes":[],"vendas":[],"config":{"energia":0.2,"potencia":120,"desgaste":0.1,"desperdicio":5,"margem":40}}');
+function guardar(){localStorage.setItem(key,JSON.stringify(db));render()}
+function eur(v){return Number(v).toFixed(2)+' €'}
+function mostrar(id){document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');render()}
+function addFilamento(){
+let nome=fnome.value.trim(),peso=Number(fpeso.value),preco=Number(fpreco.value);
+if(!nome||peso<=0||preco<0)return alert('Preenche os dados corretamente.');
+db.filamentos.push({id:Date.now(),nome,material:fmaterial.value,cor:fcor.value,peso,preco,stock:peso});
+fnome.value='';fpreco.value='';guardar();
+}
+function calcular(){
+let f=db.filamentos.find(x=>x.id==pfilamento.value);
+let nome=pnome.value.trim(),g=Number(pgramas.value),h=Number(phoras.value);
+if(!f||!nome||g<=0||h<0)return alert('Preenche os dados corretamente.');
+let c=db.config;
+let mat=g*(1+c.desperdicio/100)*f.preco/f.peso;
+let ele=h*c.potencia/1000*c.energia;
+let desgaste=h*c.desgaste;
+let custo=mat+ele+desgaste;
+let sugerido=custo*(1+c.margem/100);
+if(g>f.stock)return alert('Stock insuficiente nesta bobine.');
+f.stock-=g;
+db.impressoes.push({nome,filamento:f.nome,g,h,mat,ele,desgaste,custo,sugerido,data:new Date().toISOString()});
+guardar();
+resultado.innerHTML='<h3>Impressão registada</h3>Filamento: '+eur(mat)+'<br>Eletricidade: '+eur(ele)+'<br>Desgaste: '+eur(desgaste)+'<hr>Custo total: <b>'+eur(custo)+'</b><br>Preço sugerido: <b>'+eur(sugerido)+'</b>';
+}
+function addVenda(){
+let nome=vnome.value.trim(),q=Number(vquant.value),p=Number(vpreco.value);
+if(!nome||q<=0||p<0)return alert('Preenche os dados corretamente.');
+db.vendas.push({nome,q,p,total:q*p,data:new Date().toISOString()});guardar();vnome.value='';
+}
+function guardarConfig(){
+['energia','potencia','desgaste','desperdicio','margem'].forEach(k=>db.config[k]=Number(document.getElementById(k).value)||0);guardar();alert('Configurações guardadas.');
+}
+function exportar(){
+let a=document.createElement('a'),blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});a.href=URL.createObjectURL(blob);a.download='arejo3d-backup.json';a.click();
+}
+function render(){
+let custos=db.impressoes.reduce((s,x)=>s+x.custo,0),vendas=db.vendas.reduce((s,x)=>s+x.total,0);
+document.getElementById('custos').textContent=eur(custos);
+document.getElementById('vendas').textContent=eur(vendas);
+document.getElementById('lucro').textContent=eur(vendas-custos);
+document.getElementById('total').textContent=db.impressoes.length;
+listaFilamentos.innerHTML=db.filamentos.map(f=>'<div class="item"><b>'+f.nome+'</b><br><small>'+f.material+' · '+f.cor+' · '+eur(f.preco)+' · Stock '+f.stock+' g</small></div>').join('')||'Sem filamentos.';
+pfilamento.innerHTML=db.filamentos.map(f=>'<option value="'+f.id+'">'+f.nome+' ('+f.stock+' g)</option>').join('');
+listaImpressoes.innerHTML=db.impressoes.slice().reverse().map(x=>'<div class="item"><b>'+x.nome+'</b><br><small>'+x.g+' g · '+x.h+' h · Custo '+eur(x.custo)+'</small></div>').join('')||'Sem impressões.';
+listaVendas.innerHTML=db.vendas.slice().reverse().map(x=>'<div class="item">'+x.nome+' · '+x.q+' × '+eur(x.p)+' = <b>'+eur(x.total)+'</b></div>').join('')||'Sem vendas.';
+recentes.innerHTML=db.impressoes.slice(-3).reverse().map(x=>'<div class="item">'+x.nome+' · '+eur(x.custo)+'</div>').join('')||'Sem registos.';
+}
+energia.value=db.config.energia;potencia.value=db.config.potencia;desgaste.value=db.config.desgaste;desperdicio.value=db.config.desperdicio;margem.value=db.config.margem;
+render();
+</script>
+</body>
+</html>
